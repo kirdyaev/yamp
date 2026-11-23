@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yamamp — Settings</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body class="settings-body">
+    <main class="settings-shell">
+      <header class="settings-header">
+        <h1>Yamamp Settings</h1>
+        <span id="settings-status-badge" class="badge badge-warn">Not configured</span>
+      </header>
+
+      <section class="settings-card">
+        <p class="settings-desc">
+          Paste your personal OAuth token below. It is saved directly into
+          <strong>macOS Keychain</strong> (service <code>dev.kirdyaev.yamamp</code>,
+          account <code>oauth-token</code>) and is never written to files, logs,
+          or displayed again after saving.
+        </p>
+
+        <form id="token-form" class="token-form">
+          <label for="token-input" class="field-label">OAuth Token</label>
+          <input
+            id="token-input"
+            class="input"
+            type="password"
+            placeholder="Paste OAuth token..."
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+          <div class="settings-actions">
+            <button id="save-token-btn" class="btn btn-primary" type="submit">
+              Save to Keychain
+            </button>
+            <button id="clear-token-btn" class="btn btn-danger hidden" type="button">
+              Remove Token
+            </button>
+          </div>
+        </form>
+
+        <div id="settings-feedback" class="settings-feedback hidden"></div>
+
+        <p class="footnote">
+          See <code>README.md</code> for instructions on obtaining a personal OAuth
+          token for the unofficial API.
+        </p>
+      </section>
+    </main>
+
+    <script type="module" src="/src/settings.ts"></script>
+  </body>
+</html>
