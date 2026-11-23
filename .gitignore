@@ -17,3 +17,8 @@ __pycache__/
 agy-run1.log
 chain-run1.log
 *.pid
+screencast-post.mov
+PROMPT-*.md
+RESULT.md
+agy-*.log
+chain-*.log

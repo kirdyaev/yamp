@@ -108,7 +108,7 @@ fn open_library_window(app: tauri::AppHandle) -> Result<(), String> {
 
     let mut builder =
         WebviewWindowBuilder::new(&app, "library", WebviewUrl::App("library.html".into()))
-            .title("Yamamp — Library")
+            .title("Yamp — Library")
             .inner_size(460.0, 544.0)
             .min_inner_size(380.0, 360.0)
             .resizable(true);
@@ -141,7 +141,7 @@ fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
     }
 
     WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App("settings.html".into()))
-        .title("Yamamp — Settings")
+        .title("Yamp — Settings")
         .inner_size(440.0, 350.0)
         .resizable(false)
         .center()
@@ -406,7 +406,7 @@ fn main() {
             let state = app.state::<AppState>();
             if let Ok(mut mgr) = state.sidecar.lock() {
                 if let Err(err) = mgr.start(initial_token) {
-                    eprintln!("Yamamp sidecar startup warning: {err}");
+                    eprintln!("Yamp sidecar startup warning: {err}");
                 }
             }
             Ok(())
@@ -434,7 +434,7 @@ fn main() {
             get_my_wave,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building Yamamp");
+        .expect("error while building Yamp");
 
     app.run(|app_handle, event| {
         if matches!(event, RunEvent::Exit | RunEvent::ExitRequested { .. }) {

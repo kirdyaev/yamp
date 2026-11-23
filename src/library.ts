@@ -116,7 +116,7 @@ function renderTrackList(container: HTMLElement, tracks: ApiTrack[], emptyText: 
   tracks.forEach((track, idx) => {
     const row = document.createElement("div");
     row.className = "track-row";
-    row.title = "Double-click to play in Yamamp";
+    row.title = "Double-click to play in Yamp";
 
     const num = document.createElement("span");
     num.className = "track-num";

@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Yamamp",
+  "productName": "Yamp",
   "version": "0.1.0",
   "identifier": "dev.kirdyaev.yamamp",
   "build": {
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Yamamp",
+        "title": "Yamp",
         "width": 275,
         "height": 544,
         "center": true,

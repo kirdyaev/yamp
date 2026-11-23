@@ -38,7 +38,7 @@ impl SidecarManager {
         self.stop();
 
         let root = find_project_root()
-            .ok_or_else(|| "Could not locate Yamamp project root (sidecar/server.py)".to_string())?;
+            .ok_or_else(|| "Could not locate Yamp project root (sidecar/server.py)".to_string())?;
         let python_bin = root.join(".venv").join("bin").join("python");
         let server_py = root.join("sidecar").join("server.py");
         if !python_bin.exists() {
