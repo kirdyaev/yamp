@@ -10,20 +10,22 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
         "title": "Yamamp",
-        "width": 1060,
-        "height": 680,
-        "minWidth": 900,
-        "minHeight": 560,
+        "width": 275,
+        "height": 544,
         "center": true,
-        "resizable": true
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' tauri: asset: yamamp: data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline' data: blob:; img-src 'self' data: blob: asset: tauri:; font-src 'self' data: blob:; media-src 'self' yamamp: blob: data: http://127.0.0.1:*; connect-src 'self' ipc: http://ipc.localhost yamamp: blob: data: http://127.0.0.1:*; worker-src 'self' blob:;"
     }
   },
   "bundle": {
@@ -37,7 +39,8 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "signingIdentity": null
+      "signingIdentity": null,
+      "infoPlist": "Info.plist"
     }
   }
 }

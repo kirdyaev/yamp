@@ -4,122 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Yamamp</title>
-    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/player.css" />
   </head>
   <body>
-    <div id="app-shell">
-      <aside id="player-column">
-        <div id="webamp-anchor" aria-label="Webamp player area"></div>
-      </aside>
-
-      <main id="library-panel">
-        <header class="topbar">
-          <div class="brand-group">
-            <h1 class="app-title">Yamamp</h1>
-            <span id="token-badge" class="badge badge-warn">No token</span>
-          </div>
-          <div class="topbar-actions">
-            <button id="open-settings-btn" class="btn btn-secondary" type="button">
-              Settings
-            </button>
-          </div>
-        </header>
-
-        <nav id="tabs" class="tabs" aria-label="Library sections">
-          <button class="tab active" data-tab="search" type="button">Search</button>
-          <button class="tab" data-tab="playlists" type="button">Playlists</button>
-          <button class="tab" data-tab="likes" type="button">Мне нравится</button>
-          <button class="tab" data-tab="wave" type="button">Моя волна</button>
-        </nav>
-
-        <section id="no-token-view" class="no-token-card">
-          <div class="no-token-inner">
-            <h2>No OAuth Token Configured</h2>
-            <p>
-              Yamamp requires your personal OAuth token stored in macOS Keychain
-              (<code>dev.kirdyaev.yamamp</code>) to load Search, Playlists,
-              «Мне нравится», and «Моя волна».
-            </p>
-            <p class="muted">
-              Playback controls (Play, Pause, Next, Prev, Volume, EQ) are handled
-              directly inside the Winamp player on the left.
-            </p>
-            <div class="no-token-actions">
-              <button id="no-token-settings-btn" class="btn btn-primary" type="button">
-                Open Settings
-              </button>
-            </div>
-            <p class="footnote">
-              Your token is stored exclusively in macOS Keychain and is never
-              written to disk, logs, or git.
-            </p>
-          </div>
-        </section>
-
-        <section id="library-content" class="library-content hidden">
-          <div id="status-banner" class="status-banner hidden"></div>
-
-          <div id="tab-search" class="tab-pane active">
-            <form id="search-form" class="toolbar">
-              <input
-                id="search-input"
-                class="input"
-                type="text"
-                placeholder="Search tracks or artists..."
-                autocomplete="off"
-              />
-              <button class="btn btn-primary" type="submit">Search</button>
-              <button id="search-play-all" class="btn btn-secondary" type="button" disabled>
-                Play All in Webamp
-              </button>
-            </form>
-            <div id="search-results" class="track-list"></div>
-          </div>
-
-          <div id="tab-playlists" class="tab-pane">
-            <div class="toolbar">
-              <button id="playlists-refresh" class="btn btn-secondary" type="button">
-                Refresh Playlists
-              </button>
-              <span id="playlist-selected-title" class="muted"></span>
-              <button id="playlist-play-all" class="btn btn-secondary" type="button" disabled>
-                Play All in Webamp
-              </button>
-            </div>
-            <div class="split-playlists">
-              <div id="playlists-list" class="playlist-sidebar"></div>
-              <div id="playlist-tracks" class="track-list"></div>
-            </div>
-          </div>
-
-          <div id="tab-likes" class="tab-pane">
-            <div class="toolbar">
-              <button id="likes-refresh" class="btn btn-secondary" type="button">
-                Refresh «Мне нравится»
-              </button>
-              <button id="likes-play-all" class="btn btn-primary" type="button" disabled>
-                Play All in Webamp
-              </button>
-              <span id="likes-count" class="muted"></span>
-            </div>
-            <div id="likes-results" class="track-list"></div>
-          </div>
-
-          <div id="tab-wave" class="tab-pane">
-            <div class="toolbar">
-              <button id="wave-start" class="btn btn-primary" type="button">
-                Start «Моя волна» in Webamp
-              </button>
-              <button id="wave-more" class="btn btn-secondary" type="button">
-                Load More
-              </button>
-            </div>
-            <div id="wave-results" class="track-list"></div>
-          </div>
-        </section>
-      </main>
+    <div id="player-stage">
+      <div id="webamp-anchor" aria-label="Webamp player"></div>
+      <div id="yamamp-dock" class="yamamp-dock" title="Drag to move Yamamp">
+        <button id="dock-ml-btn" class="dock-btn dock-btn-ml" type="button" title="Open Media Library (Cmd+L)">
+          ML
+        </button>
+        <button id="dock-status-btn" class="dock-status dock-status-warn" type="button" title="Yandex Music status">
+          <span class="dock-led"></span>
+          <span id="dock-status-text">NO TOKEN</span>
+        </button>
+        <button id="dock-cfg-btn" class="dock-btn" type="button" title="Settings (Cmd+,)">
+          CFG
+        </button>
+      </div>
     </div>
-
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

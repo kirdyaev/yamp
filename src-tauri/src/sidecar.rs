@@ -115,48 +115,14 @@ impl SidecarManager {
             .ok_or_else(|| "Sidecar started without port".to_string())
     }
 
-    pub fn update_token(&mut self, token: Option<String>) -> Result<(), String> {
+    pub fn api_endpoint(&mut self) -> Result<(u16, String), String> {
         let port = self.ensure_running()?;
-        let url = format!("http://127.0.0.1:{port}/internal/token");
-        let agent = ureq::AgentBuilder::new()
-            .timeout(Duration::from_secs(10))
-            .build();
-
-        match agent
-            .post(&url)
-            .set("X-Yamamp-Secret", &self.api_secret)
-            .send_json(serde_json::json!({ "token": token }))
-        {
-            Ok(_) => Ok(()),
-            Err(ureq::Error::Status(code, resp)) => {
-                let detail = extract_error_message(resp).unwrap_or_else(|| format!("HTTP {code}"));
-                Err(detail)
-            }
-            Err(ureq::Error::Transport(e)) => Err(format!("Sidecar connection error: {e}")),
-        }
+        Ok((port, self.api_secret.clone()))
     }
 
-    pub fn get_json(&mut self, path: &str) -> Result<serde_json::Value, String> {
+    pub fn stream_endpoint(&mut self) -> Result<(u16, String), String> {
         let port = self.ensure_running()?;
-        let url = format!("http://127.0.0.1:{port}{path}");
-        let agent = ureq::AgentBuilder::new()
-            .timeout(Duration::from_secs(20))
-            .build();
-
-        match agent
-            .get(&url)
-            .set("X-Yamamp-Secret", &self.api_secret)
-            .call()
-        {
-            Ok(resp) => resp
-                .into_json::<serde_json::Value>()
-                .map_err(|e| format!("Invalid JSON from sidecar: {e}")),
-            Err(ureq::Error::Status(code, resp)) => {
-                let detail = extract_error_message(resp).unwrap_or_else(|| format!("HTTP {code}"));
-                Err(detail)
-            }
-            Err(ureq::Error::Transport(e)) => Err(format!("Sidecar connection error: {e}")),
-        }
+        Ok((port, self.stream_nonce.clone()))
     }
 
     pub fn stop(&mut self) {
@@ -165,6 +131,48 @@ impl SidecarManager {
             let _ = child.wait();
         }
         self.port = None;
+    }
+}
+
+pub fn update_token_at(port: u16, api_secret: &str, token: Option<String>) -> Result<(), String> {
+    let url = format!("http://127.0.0.1:{port}/internal/token");
+    let agent = ureq::AgentBuilder::new()
+        .timeout(Duration::from_secs(10))
+        .build();
+
+    match agent
+        .post(&url)
+        .set("X-Yamamp-Secret", api_secret)
+        .send_json(serde_json::json!({ "token": token }))
+    {
+        Ok(_) => Ok(()),
+        Err(ureq::Error::Status(code, resp)) => {
+            let detail = extract_error_message(resp).unwrap_or_else(|| format!("HTTP {code}"));
+            Err(detail)
+        }
+        Err(ureq::Error::Transport(e)) => Err(format!("Sidecar connection error: {e}")),
+    }
+}
+
+pub fn get_json_from(port: u16, api_secret: &str, path: &str) -> Result<serde_json::Value, String> {
+    let url = format!("http://127.0.0.1:{port}{path}");
+    let agent = ureq::AgentBuilder::new()
+        .timeout(Duration::from_secs(20))
+        .build();
+
+    match agent
+        .get(&url)
+        .set("X-Yamamp-Secret", api_secret)
+        .call()
+    {
+        Ok(resp) => resp
+            .into_json::<serde_json::Value>()
+            .map_err(|e| format!("Invalid JSON from sidecar: {e}")),
+        Err(ureq::Error::Status(code, resp)) => {
+            let detail = extract_error_message(resp).unwrap_or_else(|| format!("HTTP {code}"));
+            Err(detail)
+        }
+        Err(ureq::Error::Transport(e)) => Err(format!("Sidecar connection error: {e}")),
     }
 }
 
@@ -195,7 +203,8 @@ fn random_hex_32() -> Result<String, String> {
 }
 
 fn has_sidecar(dir: &Path) -> bool {
-    dir.join("sidecar").join("server.py").exists() && dir.join(".venv").join("bin").join("python").exists()
+    dir.join("sidecar").join("server.py").exists()
+        && dir.join(".venv").join("bin").join("python").exists()
 }
 
 fn find_project_root() -> Option<PathBuf> {

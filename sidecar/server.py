@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sys
 import threading
 import time
@@ -15,6 +16,19 @@ from yandex_music import Client
 logging.getLogger("yandex_music").setLevel(logging.CRITICAL)
 logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
+MAX_RANGE_BYTES = 1024 * 1024  # 1 MiB per ranged response for fast seeking/streaming
+_RANGE_RE = re.compile(r"^bytes=(\d+)-(\d*)$")
+_CONTENT_RANGE_TOTAL_RE = re.compile(r"/(\d+)$")
+
+
+def _log_stream_err(stage: str, status: int, exc: Optional[BaseException] = None) -> None:
+    err_name = type(exc).__name__ if exc is not None else "None"
+    try:
+        sys.stderr.write(f"[yamamp-stream] stage={stage} status={status} err={err_name}\n")
+        sys.stderr.flush()
+    except Exception:
+        pass
+
 
 class SidecarState:
     def __init__(self, secret: str, stream_nonce: str, token: Optional[str]) -> None:
@@ -23,7 +37,8 @@ class SidecarState:
         self.stream_nonce = stream_nonce
         self._token: Optional[str] = token.strip() if token and token.strip() else None
         self._client: Optional[Client] = None
-        self._download_cache: dict[str, tuple[float, str, str]] = {}
+        # track_id -> (expires_monotonic, direct_url, content_type, total_size)
+        self._download_cache: dict[str, tuple[float, str, str, Optional[int]]] = {}
 
     def has_token(self) -> bool:
         with self.lock:
@@ -44,19 +59,36 @@ class SidecarState:
                 self._client = Client(self._token).init()
             return self._client
 
-    def resolve_stream_url(self, track_id: str) -> tuple[str, str]:
-        now = time.monotonic()
+    def invalidate_track(self, track_id: str) -> None:
+        with self.lock:
+            self._download_cache.pop(track_id, None)
+
+    def update_total_size(self, track_id: str, total_size: int) -> None:
+        if total_size <= 0:
+            return
         with self.lock:
             cached = self._download_cache.get(track_id)
-            if cached and cached[0] > now:
-                return cached[1], cached[2]
+            if cached is not None:
+                self._download_cache[track_id] = (cached[0], cached[1], cached[2], total_size)
+
+    def resolve_stream_url(
+        self, track_id: str, force_refresh: bool = False
+    ) -> tuple[str, str, Optional[int], bool]:
+        now = time.monotonic()
+        if not force_refresh:
+            with self.lock:
+                cached = self._download_cache.get(track_id)
+                if cached and cached[0] > now:
+                    return cached[1], cached[2], cached[3], True
 
         client = self.get_client()
         infos = client.tracks_download_info(track_id, get_direct_links=True)
         if not infos:
             raise RuntimeError("No download info available for track")
 
-        mp3_infos = [i for i in infos if getattr(i, "codec", None) == "mp3" and getattr(i, "direct_link", None)]
+        mp3_infos = [
+            i for i in infos if getattr(i, "codec", None) == "mp3" and getattr(i, "direct_link", None)
+        ]
         candidates = mp3_infos if mp3_infos else [i for i in infos if getattr(i, "direct_link", None)]
         if not candidates:
             raise RuntimeError("No direct stream URL available for track")
@@ -67,14 +99,16 @@ class SidecarState:
         content_type = "audio/mpeg" if codec == "mp3" else "audio/mp4"
 
         with self.lock:
-            self._download_cache[track_id] = (time.monotonic() + 90.0, direct_url, content_type)
-        return direct_url, content_type
+            prev = self._download_cache.get(track_id)
+            prev_size = prev[3] if prev is not None else None
+            self._download_cache[track_id] = (time.monotonic() + 90.0, direct_url, content_type, prev_size)
+        return direct_url, content_type, prev_size, False
 
 
 STATE: SidecarState
 
 
-def serialize_track(track: Any, base_stream_url: str) -> dict[str, Any]:
+def serialize_track(track: Any) -> dict[str, Any]:
     raw_id = getattr(track, "track_id", None) or getattr(track, "id", "")
     track_id = str(raw_id)
     title = getattr(track, "title", None) or "Untitled"
@@ -90,7 +124,7 @@ def serialize_track(track: Any, base_stream_url: str) -> dict[str, Any]:
         "artist": artist,
         "album": album,
         "duration": round(duration_ms / 1000.0, 2),
-        "streamUrl": f"{base_stream_url}/{urllib.parse.quote(track_id, safe='')}",
+        "streamUrl": f"yamamp://localhost/stream/{urllib.parse.quote(track_id, safe='')}",
     }
 
 
@@ -98,15 +132,55 @@ def _chunked(items: list[str], size: int = 100) -> list[list[str]]:
     return [items[i : i + size] for i in range(0, len(items), size)]
 
 
+def _normalize_range_header(range_hdr: str, total_size: Optional[int]) -> tuple[str, bool]:
+    """Clamp large or open-ended byte ranges to MAX_RANGE_BYTES for responsive seeking."""
+    m = _RANGE_RE.match(range_hdr.strip())
+    if not m:
+        return range_hdr, False
+    start = int(m.group(1))
+    end_str = m.group(2)
+    if total_size is not None and start >= total_size:
+        return range_hdr, False
+
+    if end_str:
+        req_end = int(end_str)
+        if req_end < start:
+            return range_hdr, False
+        if req_end - start + 1 <= MAX_RANGE_BYTES:
+            return range_hdr, False
+        clamped_end = start + MAX_RANGE_BYTES - 1
+    else:
+        clamped_end = start + MAX_RANGE_BYTES - 1
+
+    if total_size is not None:
+        clamped_end = min(clamped_end, total_size - 1)
+    return f"bytes={start}-{clamped_end}", True
+
+
+def _extract_total_size(status_code: int, headers: Any) -> Optional[int]:
+    cr = headers.get("Content-Range")
+    if cr:
+        m = _CONTENT_RANGE_TOTAL_RE.search(cr)
+        if m:
+            try:
+                return int(m.group(1))
+            except ValueError:
+                return None
+    if status_code == 200:
+        cl = headers.get("Content-Length")
+        if cl:
+            try:
+                return int(cl)
+            except ValueError:
+                return None
+    return None
+
+
 class YamampHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         return
-
-    def _base_stream_url(self) -> str:
-        port = self.server.server_address[1]
-        return f"http://127.0.0.1:{port}/s/{STATE.stream_nonce}/stream"
 
     def _check_secret(self) -> bool:
         got = self.headers.get("X-Yamamp-Secret", "")
@@ -192,7 +266,6 @@ class YamampHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            base_stream = self._base_stream_url()
             qs = urllib.parse.parse_qs(parsed.query)
 
             if parsed.path == "/api/search":
@@ -209,7 +282,7 @@ class YamampHandler(BaseHTTPRequestHandler):
                 self._send_json(
                     200,
                     {
-                        "tracks": [serialize_track(t, base_stream) for t in results],
+                        "tracks": [serialize_track(t) for t in results],
                         "total": total,
                     },
                 )
@@ -248,7 +321,7 @@ class YamampHandler(BaseHTTPRequestHandler):
                     200,
                     {
                         "title": getattr(pl, "title", None) or "Playlist",
-                        "tracks": [serialize_track(t, base_stream) for t in hydrated],
+                        "tracks": [serialize_track(t) for t in hydrated],
                     },
                 )
                 return
@@ -261,7 +334,7 @@ class YamampHandler(BaseHTTPRequestHandler):
                 self._send_json(
                     200,
                     {
-                        "tracks": [serialize_track(t, base_stream) for t in hydrated],
+                        "tracks": [serialize_track(t) for t in hydrated],
                         "total": len(all_short),
                     },
                 )
@@ -276,7 +349,7 @@ class YamampHandler(BaseHTTPRequestHandler):
                 self._send_json(
                     200,
                     {
-                        "tracks": [serialize_track(t, base_stream) for t in tracks],
+                        "tracks": [serialize_track(t) for t in tracks],
                         "batchId": getattr(station, "batch_id", None),
                     },
                 )
@@ -286,7 +359,7 @@ class YamampHandler(BaseHTTPRequestHandler):
         except PermissionError:
             self._send_json(401, {"error": "NO_TOKEN"})
         except Exception as exc:
-            self._send_json(500, {"error": f"{type(exc).__name__}: {exc}"})
+            self._send_json(500, {"error": type(exc).__name__})
 
     def _hydrate_short_tracks(self, client: Client, short_tracks: list[Any]) -> list[Any]:
         if not short_tracks:
@@ -300,61 +373,101 @@ class YamampHandler(BaseHTTPRequestHandler):
             out.extend(client.tracks(batch) or [])
         return out
 
+    def _send_empty(self, status: int) -> None:
+        self.send_response(status)
+        self._send_cors_headers()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def _handle_stream(self, track_id: str, head_only: bool) -> None:
         if not track_id:
-            self.send_response(400)
-            self._send_cors_headers()
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+            self._send_empty(400)
             return
 
         try:
-            direct_url, default_ct = STATE.resolve_stream_url(track_id)
+            direct_url, default_ct, total_size, was_cached = STATE.resolve_stream_url(track_id)
         except PermissionError:
-            self.send_response(401)
-            self._send_cors_headers()
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+            self._send_empty(401)
             return
-        except Exception:
-            self.send_response(502)
-            self._send_cors_headers()
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+        except Exception as exc:
+            _log_stream_err("resolve", 502, exc)
+            self._send_empty(502)
             return
 
+        raw_range_hdr = self.headers.get("Range")
         upstream_headers: dict[str, str] = {}
-        range_hdr = self.headers.get("Range")
-        if range_hdr:
-            upstream_headers["Range"] = range_hdr
+        clamped = False
+        if raw_range_hdr and not head_only:
+            norm_range, clamped = _normalize_range_header(raw_range_hdr, total_size)
+            upstream_headers["Range"] = norm_range
+        elif raw_range_hdr:
+            upstream_headers["Range"] = raw_range_hdr
+
+        headers_sent = False
+        method = "HEAD" if head_only else "GET"
 
         try:
-            method = "HEAD" if head_only else "GET"
-            with requests.request(
-                method,
-                direct_url,
-                headers=upstream_headers,
-                stream=not head_only,
-                timeout=20,
-            ) as resp:
-                self.send_response(resp.status_code)
-                self._send_cors_headers()
-                self.send_header("Content-Type", resp.headers.get("Content-Type") or default_ct)
-                self.send_header("Accept-Ranges", resp.headers.get("Accept-Ranges") or "bytes")
-                if "Content-Length" in resp.headers:
-                    self.send_header("Content-Length", resp.headers["Content-Length"])
-                if "Content-Range" in resp.headers:
-                    self.send_header("Content-Range", resp.headers["Content-Range"])
-                self.send_header("Cache-Control", "no-store")
-                self.end_headers()
+            for attempt in range(2):
+                with requests.request(
+                    method,
+                    direct_url,
+                    headers=upstream_headers,
+                    stream=not head_only,
+                    timeout=20,
+                ) as resp:
+                    if resp.status_code in (403, 410) and was_cached and attempt == 0:
+                        STATE.invalidate_track(track_id)
+                        direct_url, default_ct, total_size, was_cached = STATE.resolve_stream_url(
+                            track_id, force_refresh=True
+                        )
+                        continue
 
-                if not head_only:
-                    for chunk in resp.iter_content(chunk_size=65536):
-                        if chunk:
-                            self.wfile.write(chunk)
+                    if resp.status_code == 416 and clamped and raw_range_hdr and attempt == 0:
+                        upstream_headers["Range"] = raw_range_hdr
+                        clamped = False
+                        continue
+
+                    discovered_total = _extract_total_size(resp.status_code, resp.headers)
+                    if discovered_total is not None:
+                        STATE.update_total_size(track_id, discovered_total)
+
+                    # Always force audio/mpeg (or audio/mp4) — upstream often sends application/octet-stream
+                    upstream_ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+                    effective_ct = (
+                        upstream_ct
+                        if upstream_ct.startswith("audio/")
+                        else default_ct
+                    )
+
+                    self.send_response(resp.status_code)
+                    self._send_cors_headers()
+                    self.send_header("Content-Type", effective_ct)
+                    self.send_header("Accept-Ranges", resp.headers.get("Accept-Ranges") or "bytes")
+                    if "Content-Length" in resp.headers:
+                        self.send_header("Content-Length", resp.headers["Content-Length"])
+                    if "Content-Range" in resp.headers:
+                        self.send_header("Content-Range", resp.headers["Content-Range"])
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    headers_sent = True
+
+                    if resp.status_code >= 400:
+                        _log_stream_err("upstream", resp.status_code)
+
+                    if not head_only:
+                        for chunk in resp.iter_content(chunk_size=65536):
+                            if chunk:
+                                self.wfile.write(chunk)
+                    return
         except (BrokenPipeError, ConnectionResetError):
             return
-        except Exception:
+        except Exception as exc:
+            _log_stream_err("proxy", 502, exc)
+            if not headers_sent:
+                try:
+                    self._send_empty(502)
+                except Exception:
+                    pass
             return
 
 

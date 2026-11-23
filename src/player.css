@@ -1,0 +1,140 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 275px;
+  height: 100%;
+  background: transparent !important;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, monospace;
+}
+
+#player-stage {
+  position: relative;
+  width: 275px;
+  height: 544px;
+  background: transparent;
+}
+
+#webamp-anchor {
+  position: relative;
+  width: 275px;
+  height: 522px;
+  background: transparent;
+}
+
+#webamp {
+  top: 0 !important;
+  left: 0 !important;
+}
+
+.yamamp-dock {
+  position: absolute;
+  top: 522px;
+  left: 0;
+  width: 275px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 2px 4px;
+  background: linear-gradient(180deg, #323244 0%, #20202d 55%, #171722 100%);
+  border-top: 1px solid #4e4e68;
+  border-left: 1px solid #3c3c52;
+  border-right: 1px solid #0c0c12;
+  border-bottom: 1px solid #09090e;
+  cursor: grab;
+  z-index: 40;
+}
+
+.yamamp-dock:active {
+  cursor: grabbing;
+}
+
+.dock-btn {
+  height: 16px;
+  padding: 0 7px;
+  border-radius: 1px;
+  border-top: 1px solid #5c5c78;
+  border-left: 1px solid #50506a;
+  border-right: 1px solid #0c0c12;
+  border-bottom: 1px solid #0c0c12;
+  background: linear-gradient(180deg, #3c3c50 0%, #242433 100%);
+  color: #d6daea;
+  font-family: inherit;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+.dock-btn:hover {
+  color: #ffffff;
+  background: linear-gradient(180deg, #484860 0%, #2c2c3f 100%);
+}
+
+.dock-btn:active {
+  border-top-color: #0c0c12;
+  border-left-color: #0c0c12;
+  border-right-color: #5c5c78;
+  border-bottom-color: #5c5c78;
+}
+
+.dock-btn-ml {
+  color: #42ff75;
+}
+
+.dock-status {
+  flex: 1;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 6px;
+  background: #090a0f;
+  border-top: 1px solid #0a0a10;
+  border-left: 1px solid #0a0a10;
+  border-right: 1px solid #3c3c52;
+  border-bottom: 1px solid #3c3c52;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.dock-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dock-status-ok {
+  color: #2df064;
+}
+
+.dock-status-ok .dock-led {
+  background: #2df064;
+  box-shadow: 0 0 4px #2df064;
+}
+
+.dock-status-warn {
+  color: #f2c337;
+}
+
+.dock-status-warn .dock-led {
+  background: #f2c337;
+  box-shadow: 0 0 4px #f2c337;
+}

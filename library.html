@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yamamp — Library</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="library-shell">
+      <header class="win-topbar">
+        <div class="brand-group">
+          <span class="win-title">YAMAMP LIBRARY</span>
+          <span id="token-badge" class="badge badge-warn">NO TOKEN</span>
+        </div>
+        <button id="open-settings-btn" class="btn btn-secondary btn-xs" type="button">
+          Settings
+        </button>
+      </header>
+
+      <nav id="tabs" class="tabs" aria-label="Library sections">
+        <button class="tab active" data-tab="search" type="button">Search</button>
+        <button class="tab" data-tab="playlists" type="button">Playlists</button>
+        <button class="tab" data-tab="likes" type="button">Мне нравится</button>
+        <button class="tab" data-tab="wave" type="button">Моя волна</button>
+      </nav>
+
+      <section id="no-token-view" class="no-token-card">
+        <div class="no-token-inner">
+          <h2>NO OAUTH TOKEN</h2>
+          <p>
+            Configure your personal Yandex Music OAuth token in macOS Keychain
+            (<code>dev.kirdyaev.yamamp</code>) to load Search, Playlists,
+            «Мне нравится», and «Моя волна».
+          </p>
+          <div class="no-token-actions">
+            <button id="no-token-settings-btn" class="btn btn-primary" type="button">
+              Open Settings
+            </button>
+          </div>
+          <p class="footnote">
+            Stored exclusively in macOS Keychain. Never written to disk or logs.
+          </p>
+        </div>
+      </section>
+
+      <section id="library-content" class="library-content hidden">
+        <div id="status-banner" class="status-banner hidden"></div>
+
+        <div id="tab-search" class="tab-pane active">
+          <form id="search-form" class="toolbar">
+            <input
+              id="search-input"
+              class="input"
+              type="text"
+              placeholder="Search tracks or artists..."
+              autocomplete="off"
+            />
+            <button class="btn btn-primary btn-xs" type="submit">Go</button>
+            <button id="search-play-all" class="btn btn-secondary btn-xs" type="button" disabled>
+              Play All
+            </button>
+          </form>
+          <div id="search-results" class="track-list"></div>
+        </div>
+
+        <div id="tab-playlists" class="tab-pane">
+          <div class="toolbar">
+            <button id="playlists-refresh" class="btn btn-secondary btn-xs" type="button">
+              Refresh
+            </button>
+            <span id="playlist-selected-title" class="muted toolbar-label"></span>
+            <button id="playlist-play-all" class="btn btn-primary btn-xs" type="button" disabled>
+              Play All
+            </button>
+          </div>
+          <div class="split-playlists">
+            <div id="playlists-list" class="playlist-sidebar"></div>
+            <div id="playlist-tracks" class="track-list"></div>
+          </div>
+        </div>
+
+        <div id="tab-likes" class="tab-pane">
+          <div class="toolbar">
+            <button id="likes-refresh" class="btn btn-secondary btn-xs" type="button">
+              Refresh
+            </button>
+            <button id="likes-play-all" class="btn btn-primary btn-xs" type="button" disabled>
+              Play All
+            </button>
+            <span id="likes-count" class="muted toolbar-label"></span>
+          </div>
+          <div id="likes-results" class="track-list"></div>
+        </div>
+
+        <div id="tab-wave" class="tab-pane">
+          <div class="toolbar">
+            <button id="wave-start" class="btn btn-primary btn-xs" type="button">
+              Play «Моя волна»
+            </button>
+            <button id="wave-more" class="btn btn-secondary btn-xs" type="button">
+              + More
+            </button>
+          </div>
+          <div id="wave-results" class="track-list"></div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="/src/library.ts"></script>
+  </body>
+</html>
