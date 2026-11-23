@@ -1,6 +1,6 @@
 # Yamp
 
-Yamp is a personal-use, unofficial Winamp-2-style desktop client for macOS. It is not a store distribution, not published, and not affiliated with Yandex.
+Yamp is a personal-use, unofficial Winamp-2-style desktop client for macOS. It is not distributed through any app store and is not affiliated with Yandex.
 
 ## Installing
 
